@@ -48,13 +48,16 @@ class SitemapGenerator
 		curl_close($curl);
 		
 		$info = curl_getinfo($curl);
-		//echo gmdate(DATE_ATOM,$info['filetime'])."<br/>";
 
 		//Load the html and store it into a DOM object
 		$dom = new DOMDocument();
 		@$dom->loadHTML($html);
+		
+		$response = new stdClass;
+		$response->info = $info;
+		$response->dom = $dom;
 
-		return $dom;
+		return $response;
 	}
 
 	// Recursive function that crawls a page's anchor tags and store them in the scanned array.
@@ -63,16 +66,17 @@ class SitemapGenerator
 		$url = filter_var($page_url, FILTER_SANITIZE_URL);
 
 		// Check if the url is invalid or if the page is already scanned;
-		if (in_array($url, $this->scanned) || !filter_var($page_url, FILTER_VALIDATE_URL)) {
+		if (in_array($url, array_column($this->scanned, "page_url")) || !filter_var($page_url, FILTER_VALIDATE_URL)) {
 			return;
 		}
-
-		// Add the page url to the scanned array
-		array_push($this->scanned, $page_url);
-
+		
 		// Get the html content from the 
-		$html = $this->getHtml($url);
+		$response = $this->getHtml($url);
+		$html = $response->dom;
 		$anchors = $html->getElementsByTagName('a');
+		
+		// Add the page url and curl_info to the scanned array
+		array_push($this->scanned, array("page_url" => $page_url, "page_info" => $response->info));
 
 		// Loop through all anchor tags on the page
 		foreach ($anchors as $a) {
@@ -146,7 +150,7 @@ class SitemapGenerator
 	private function generateFile($pages)
 	{
 		$xml = '<?xml version="1.0" encoding="UTF-8"?>
-        <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+		<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 		<!-- ' . count($pages) . ' total pages-->
 		<!-- PHP-sitemap-generator by https://github.com/tristangoossens -->';
 
@@ -155,10 +159,12 @@ class SitemapGenerator
 		echo count($pages);
 
 		foreach ($pages as $page) {
-			$xml .= "<url><loc>" . $page . "</loc>
-            <lastmod>" . $this->config['LAST_UPDATED'] . "</lastmod>
-            <changefreq>" . $this->config['CHANGE_FREQUENCY'] . "</changefreq>
-            <priority>" . $this->config['PRIORITY'] . "</priority></url>";
+			// If it exists, grab the last modified timestamp and cast it to a date for the XML
+			$last_modified = (isset($page["page_info"]['filetime']) && $page["page_info"]['filetime'] > 0) ? gmdate(DATE_ATOM, $page["page_info"]['filetime']) : $this->config['LAST_UPDATED'];
+			$xml .= "<url><loc>" . $page["page_url"] . "</loc>
+			<lastmod>" . $last_modified . "</lastmod>
+			<changefreq>" . $this->config['CHANGE_FREQUENCY'] . "</changefreq>
+			<priority>" . $this->config['PRIORITY'] . "</priority></url>";
 		}
 
 		$xml .= "</urlset>";
