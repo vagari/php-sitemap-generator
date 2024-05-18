@@ -44,6 +44,9 @@ class SitemapGenerator
 		// get last modified date
 		curl_setopt($curl, CURLOPT_FILETIME, true);
 		
+		// More headers to prevent 403. Possible being blocked by Cloudflare
+		curl_setopt($curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+		
 		$html = curl_exec($curl);
 		curl_close($curl);
 		
