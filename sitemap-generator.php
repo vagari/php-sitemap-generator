@@ -41,8 +41,14 @@ class SitemapGenerator
 		$curl = curl_init();
 		curl_setopt($curl, CURLOPT_URL, $url);
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+		// get last modified date
+		curl_setopt($curl, CURLOPT_FILETIME, true);
+		
 		$html = curl_exec($curl);
 		curl_close($curl);
+		
+		$info = curl_getinfo($curl);
+		//echo gmdate(DATE_ATOM,$info['filetime'])."<br/>";
 
 		//Load the html and store it into a DOM object
 		$dom = new DOMDocument();
